@@ -1,0 +1,445 @@
+---
+title: "30538 Final Project: Financial Inclusion in Peru"
+author: "Alejandra Silva"
+date: "2024-10-03"
+format: 
+  html:
+    code-overflow: wrap   
+execute:
+  eval: true          
+  echo: false          
+---
+
+This project focuses on analyzing financial inclusion in Peru, emphasizing the challenges and opportunities within a centralized financial system. Peru's economic activities are heavily concentrated in Lima, which leaves other regions with limited access to credit. Financial inclusion is essential for empowering small and medium enterprises (SMEs) and driving economic growth across the country. By improving access to credit, particularly in underserved regions, the project aims to highlight the potential for SMEs to stimulate economic activity, create jobs, and reduce regional disparities.
+
+### **1. Data and Data Manipulation**
+
+To conduct this analysis, several key datasets from Peru’s Financial Stability Authority were utilized:
+
+AN10: This dataset provides detailed information on loans and deposits at both regional and national levels. It includes essential details such as dates, financial institutions, and the geographic distribution of financial activities.
+
+REP4B2: This dataset focuses on credit data disaggregated by industry, offering insights into how financial resources are allocated across different economic sectors.
+
+ENTIDAD and UBIGEO: These dimensional tables act as dictionaries, providing information about financial institutions and their geographic locations, including zip code mappings.
+
+GeoJSON File: A geographic representation of Peru’s regions used for visualizing financial inclusion trends spatially.
+
+
+**1. AN10 Dataset: Loans and Deposits**
+
+- **Objective:** This dataset provides details on loans and deposits at the regional and national levels, including monthly records and financial institution data.
+  
+- **Steps:**
+  - **Date Transformation:** Convert the date variable into a standard format (`YearMonth`) to facilitate time-series aggregation.
+  - **Merging with Dimensional Data:**
+    - Combine AN10 with the **ENTIDAD** table using the financial institution code (`CODIGO_ENTIDAD_ID`) to incorporate details about the type and name of financial institutions.
+    - Merge with **UBIGEO** to include geographic details, such as regional identifiers and locations.
+  - **Aggregation:** Aggregate loans and deposits by `YearMonth` and region to analyze trends over time and across geographies.
+  - **Translation:** Translate variable names and key categories into English for consistency in reporting.
+
+
+**2. AN3 Dataset: Industry-Specific Credit Data**
+
+- **Objective:** Analyze loans disaggregated by industry to identify trends and focus areas for financial inclusion.
+
+- **Steps:**
+  - **Date Transformation:** Standardize the date variable into a `YearMonth` format for uniform time-series analysis.
+  - **Categorization:**
+    - Develop a mapping function to group industries into broader categories (e.g., "Agriculture," "Construction," "Manufacturing") for easier interpretation and visualization.
+  - **Aggregation:** Sum loan amounts by `YearMonth` and industry category to identify key sectors driving or lagging in financial inclusion.
+  - **Translation:** Translate industry names from Spanish into English for clarity and consistency.
+
+
+**3. ENTIDAD Table: Financial Institution Details**
+
+- **Objective:** Act as a dictionary for financial institutions, providing metadata to enhance analysis of loans and deposits.
+
+- **Steps:**
+  - **Mapping Financial Types:** Translate the types of financial entities (e.g., banks, cooperatives) into English using a predefined mapping function.
+  - **Merge with AN10 and REP4B2:** Add detailed information about financial institutions to the core datasets for a richer analysis.
+
+
+**4. UBIGEO Table: Geographic Data**
+
+- **Objective:** Provide geographic details such as regions and zip codes to link with loan and deposit records.
+
+- **Steps:**
+  - **Merging with AN10:** Integrate UBIGEO data with AN10 using the geographic code (`CODIGO_UBIGEO`) to add regional identifiers.
+  - **Translation:** Ensure regional names are consistent and translated into English where necessary.
+
+
+**5. GeoJSON File: Spatial Representation of Peru**
+
+- **Objective:** Visualize financial inclusion trends geographically.
+
+- **Steps:**
+  - **Region Matching:** Ensure that regional names in the GeoJSON file match the corresponding names in the AN10 dataset for accurate mapping.
+  - **Merging with Aggregated Data:** Merge aggregated loan and deposit data by region and `YearMonth` into the GeoJSON file for creating choropleth maps.
+  - **Standardization:** Resolve any discrepancies in naming conventions or missing regions to ensure smooth visualization.
+
+
+
+```{python}
+#| warning: false
+#| include: false
+
+import pandas as pd
+import altair as alt
+import geopandas as gpd
+import json
+import os
+print(os.getcwd())
+
+# File paths for datasets
+file_paths = {
+    "AN3": "../Data/raw/exportAN3.dsv",
+    "AN10": "../Data/raw/exportAN10v2.dsv",
+    "ENTIDAD": "../Data/raw/exportENTIDAD.dsv",
+    "REP4B2": "../Data/raw/exportREP4B2.dsv",
+    "REP4B3": "../Data/raw/exportREP4B3.dsv",
+    "UBIGEO": "../Data/raw/exportUBIGEO.dsv"
+}
+
+
+# Load datasets into a dictionary
+dataframes = {
+    name: pd.read_csv(path, delimiter='|', encoding='latin1')
+    for name, path in file_paths.items()
+}
+
+
+# Access individual dataframes directly if needed
+AN3, AN10, ENTIDAD, REP4B2, REP4B3, UBIGEO = (
+    dataframes["AN3"],
+    dataframes["AN10"],
+    dataframes["ENTIDAD"],
+    dataframes["REP4B2"],
+    dataframes["REP4B3"],
+    dataframes["UBIGEO"]
+)
+
+```
+
+```{python }
+#| warning: false
+#| include: false
+
+for name in ['AN3', 'AN10', 'REP4B2', 'REP4B3']:
+    if name in dataframes and 'PERIODO_ID' in dataframes[name].columns:
+        dataframes[name]['Date'] = pd.to_datetime(dataframes[name]['PERIODO_ID'], format='%Y%m%d', errors='coerce')
+        dataframes[name] = dataframes[name][dataframes[name]['Date'] >= '2012-01-01']  # Removed the trailing comma
+        dataframes[name]['YearMonth'] = dataframes[name]['Date'].astype(str).str[:7]
+
+# Access processed dataframes
+AN3, AN10, REP4B2, REP4B3 = dataframes['AN3'], dataframes['AN10'], dataframes['REP4B2'], dataframes['REP4B3']
+
+
+```
+
+#  Define a mapping from Spanish entity types to English financial institution types
+```{python}
+#| warning: false
+#| include: false
+
+import pandas as pd
+
+# Define a mapping from Spanish entity types to English financial institution types
+fi_type_mapping = {
+    "Caja municipal": "Credit Union",
+    "Banco": "Bank",
+    "Financiera": "Finance Company",
+    "Administradora Hipotecaria": "Mortgage Administrator",
+    "Caja rural": "Credit Union",
+    "Empresa de Crédito": "Credit Company",
+    "Empresa Emisora de Dinero Electrónico": "Electronic Money Issuer",
+    "Fondo": "Fund"
+}
+
+# Apply the mapping to create the FI_TYPE column
+ENTIDAD["FI_TYPE"] = ENTIDAD["ENTIDAD_TIPO"].map(fi_type_mapping)
+
+
+```
+
+# Data manipulation for Annex 03
+```{python}
+#| warning: false
+#| include: false
+
+import pandas as pd
+
+# Merge AN3 with ENTIDAD on CODIGO_ENTIDAD_ID
+merged_AN3 = pd.merge(AN3, ENTIDAD, on="CODIGO_ENTIDAD_ID", how="left")
+
+# Select and rename columns in a single step
+merged_AN3 = merged_AN3[[
+    "Date",
+    "YearMonth",
+    "TIPO_CREDITO",
+    "CODIGO_ENTIDAD_ID",
+    "FI_TYPE",
+    "ENTIDAD_TIPO",
+    "SECTOR_ECONOMICO",
+    "SALDO_TOTAL_SOLES",
+    "NUMERO_NUEVOS_CREDITOS",
+    "NUMERO_DEUDORES_CIERRE"
+]].rename(columns={
+    "SECTOR_ECONOMICO": "Industry",
+    "SALDO_TOTAL_SOLES": "Loans",
+    "NUMERO_NUEVOS_CREDITOS": "Loans_new",
+    "NUMERO_DEUDORES_CIERRE": "Debtors"
+})
+
+# Function to categorize loan types based on TIPO_CREDITO
+def categorize_loan_type(credit_type):
+    if pd.isna(credit_type):
+        return None
+    elif "CORPORATIVOS" in credit_type :
+        return "business"
+    elif "HIPOTECARIOS" in credit_type:
+        return "mortgages"
+    elif "CONSUMO" in credit_type:
+        return "personal"
+    else:
+        return None
+
+merged_AN3["LOAN_TYPE"] = merged_AN3["TIPO_CREDITO"].apply(categorize_loan_type)
+
+# Function to categorize industry names into broader categories
+def categorize_industry(industry_name):
+    """Categorize industry names into broader categories."""
+    mapping = {
+        'Agriculture and Fishing': [
+            'A. Agricultura,  Ganadería, Caza y Silvicultura',
+            'B. Pesca',
+            '     A. Agricultura, ganadería, silvicultura y pesca'
+        ],
+        'Mining and Extraction': [
+            'C. Minería',
+            '     B. Explotación de minas y canteras'
+        ],
+        'Manufacturing': [
+            'D. Industria Manufacturera',
+            '     C. Industria manufacturera'
+        ],
+        'Utilities': [
+            'E. Electricidad, Gas y Agua',
+            '     D. Electricidad, gas, vapor y aire acondicionado',
+            '     E. Agua, gestión de desechos y descontaminación'
+        ],
+        'Construction': [
+            'F. Construcción',
+            '     F. Construcción'
+        ],
+        'Commerce': [
+            'G. Comercio',
+            '     G. Comercio'
+        ],
+        'Hospitality': [
+            'H. Hoteles y Restaurantes',
+            '     I.  Alojamiento y servicios de comidas'
+        ],
+        'Transport and Communications': [
+            'I. Transporte, Almacensmiento y Comunicaciones',
+            '     H. Transporte y almacenamiento',
+            '     J. Información y comunicaciones'
+        ],
+        'Financial and Business Services': [
+            'J. Intermediación Financiera',
+            'K. Actividades Inmobiliarias, empresariales y de alquiler',
+            '     K. Actividades financieras y de seguros',
+            '     L. Actividades inmobiliarias',
+            '     M. Actividades profesionales, científicas y técnicas'
+        ],
+        'Public Administration and Services': [
+            'L. Administración Pública y Defensa',
+            '     O. Administración pública y defensa'
+        ],
+        'Education': [
+            'M. Enseñanza',
+            '     P. Enseñanza'
+        ],
+        'Health and Social Services': [
+            'N. Servicios Sociales y de Salud',
+            '     Q. Salud humana y asistencia social'
+        ],
+        'Arts, Entertainment, and Other Services': [
+            'O. Otras Actividades de Servicios Comunitarios',
+            '     R. Act. artísticas, de entretenimiento y recreativas',
+            '     S. Otras actividades de servicios'
+        ],
+        'Domestic and Extraterritorial Activities': [
+            'P,Q.Hogares Privados c/serv.doméstico y Organos Extraterritoriales',
+            '     T, U. Act. hogares como empleadores y órganos extraterritoriales'
+        ],
+        'Personal/Mortgage loans': ['(no aplica)']
+    }
+
+    for category, keywords in mapping.items():
+        if industry_name in keywords:
+            return category
+    return 'Unknown'
+
+merged_AN3['industry_cat'] = merged_AN3['Industry'].apply(categorize_industry)
+
+# Save the result to a .dsv file 
+merged_AN3.to_csv("../Data/processed/an03_final.dsv", sep='|', index=False)
+
+
+```
+
+# Data manipulation for Annex 10 
+```{python}
+#| warning: false
+#| include: false
+
+
+# Step 2: Merge AN10 with ENTIDAD on CODIGO_ENTIDAD_ID
+merged_AN10 = pd.merge(AN10, ENTIDAD, on="CODIGO_ENTIDAD_ID", how="left")
+
+# Step 3: Merge the result with UBIGEO on CODIGO_UBIGEO
+merged_AN10 = pd.merge(merged_AN10, UBIGEO, on="CODIGO_UBIGEO", how="left")
+
+merged_AN10['DEPARTAMENTO'] = merged_AN10['DEPARTAMENTO'].str.upper()
+
+# Step 4: Select specific columns and rename them
+merged_AN10 = merged_AN10[[
+    "PERIODO_ID",
+    "Date",
+    "YearMonth",
+    "CODIGO_ENTIDAD_ID",
+    "FI_TYPE",
+    "ENTIDAD_TIPO",
+    "DEPARTAMENTO",
+    "TOTAL_DEPOSITOS",
+    "TOTAL_COLOCACIONES"
+]].rename(columns={
+    "TOTAL_DEPOSITOS": "Deposits",
+    "TOTAL_COLOCACIONES": "Loans",
+    "DEPARTAMENTO": "Region"
+})
+
+
+
+#  Save the result to a .dsv file
+merged_AN10.to_csv("../Data/processed/an10_final.dsv", sep='|', index=False)
+
+
+an10_aggregated = merged_AN10.groupby(['YearMonth', 'Region'], as_index=False).agg({
+    'Deposits': 'sum',
+    'Loans': 'sum'
+})
+
+an10_aggregated.to_csv("../Data/processed/an10_aggregated.dsv", sep='|', index=False)
+
+
+an10_aggregated2 = merged_AN10.groupby(['YearMonth'], as_index=False).agg({
+    'Deposits': 'sum',
+    'Loans': 'sum'
+})
+
+an10_aggregated2.to_csv("../Data/processed/an10_aggregated2.dsv", sep='|', index=False)
+
+```
+
+# Data manipulation for Rep2 final
+```{python}
+#| warning: false
+#| include: false
+
+
+# Rename columns
+REP4B2.rename(columns={
+    "SECTOR": "industry",
+    "CREDITOS_DIRECTOS": "Loans",
+    "PARTICIPACION": "Share"
+}, inplace=True)
+
+# Display unique industries
+unique_industries = REP4B2['industry'].unique()
+print("Unique industries:", unique_industries)
+
+# Define a function to categorize industries into broader English labels
+def categorize_industry(industry):
+    industry_groups = {
+        'Chemical Manufacturing': [
+            'Fab. de sustancias y prod. químicos'
+        ],
+        'Wood, Paper, Rubber, and Plastics Manufacturing': [
+            'Madera y papel, caucho y plástico'
+        ],
+        'Metal and Mineral Manufacturing': [
+            'Fab. de metales', 
+            'Fab.de prods. minerales no metálicos', 
+            'Fab. de prods. minerales no metálicos'
+        ],
+        'Mining and Quarrying': [
+            'Minería', 
+            'Explotación de minas y canteras'
+        ],
+        'Transportation and Storage': [
+            'Transporte, Almacenamiento y Comunicaciones', 
+            'Transporte y almacenamiento, e información y comunicaciones'
+        ],
+        'Agriculture, Forestry, and Fishing': [
+            'Agricultura, Ganadería, Caza y Silvicultura',
+            'Pesca'
+        ],
+        'Food and Beverage Manufacturing': [
+            'Alimentos, bebidas y tabaco'
+        ],
+        'Commerce': [
+            'Comercio'
+        ],
+        'Retail and Real Estate Activities': [
+            'Activid. Inmob. empresariales y de alq.', 
+            'Actividades inmobiliarias'
+        ],
+        'Mortgage and Housing': [
+            'Hipotecario para vivienda'
+        ],
+        'Utilities and Waste Management': [
+            'Electricidad, Gas y Agua', 
+            'Electricidad, gas, vapor, aire acondicionado, agua, gestión de desechos y contaminación'
+        ],
+        'Hospitality and Food Services': [
+            'Hoteles y Restaurantes', 
+            'Alojamiento y servicio de comidas'
+        ],
+        'Construction': [
+            'Construcción'
+        ],
+        'Non-Retail Services': [
+            'Otros no minoristas', 
+            'Otras actividades de servicios'
+        ],
+        'General Manufacturing': [
+            'Resto de manufactura', 
+            'Textiles y cueros'
+        ],
+        'Financial and Insurance Services': [
+            'Intermediación Financiera', 
+            'Actividades financieras y de seguros'
+        ]
+    }
+    
+    for category, industries in industry_groups.items():
+        if industry in industries:
+            return category
+    return 'Other'  # Default category for unclassified industries
+
+# Apply the function to categorize industries in the 'industry' column
+REP4B2['industry_category'] = REP4B2['industry'].apply(categorize_industry)
+
+# Display unique categorized industries to confirm the mapping
+categorized_unique_industries = REP4B2['industry_category'].unique()
+print("Categorized industries:", categorized_unique_industries)
+
+# Merge with ENTIDAD on CODIGO_ENTIDAD_ID
+merged_REP4B2 = pd.merge(REP4B2, ENTIDAD, on="CODIGO_ENTIDAD_ID", how="left")
+
+# Save merged data as .dsv
+merged_REP4B2.to_csv('../Data/processed/rep4b2_final.dsv', sep='|', index=False)
+
+```
+
