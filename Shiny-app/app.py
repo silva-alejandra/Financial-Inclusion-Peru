@@ -6,10 +6,10 @@ from shinywidgets import render_widget, output_widget
 
 
 # Load the GeoJSON data and deposit data
-geo_data = gpd.read_file("../Data/raw/peru_departamental_simple.geojson")
-an10 = pd.read_csv("../Data/processed/an10_final.dsv", sep="|")
-rep4b2 = pd.read_csv("../Data/processed/rep4b2_final.dsv", sep="|")
-an03 = pd.read_csv("../Data/processed/an03_final.dsv", sep="|")
+geo_data = gpd.read_file("Data/raw/peru_departamental_simple.geojson")
+an10 = pd.read_csv("Data/processed/an10_final.dsv", sep="|")
+rep4b2 = pd.read_csv("Data/processed/rep4b2_final.dsv", sep="|")
+an03 = pd.read_csv("Data/processed/an03_final.dsv", sep="|")
 
 
 # Preprocess an10 data
