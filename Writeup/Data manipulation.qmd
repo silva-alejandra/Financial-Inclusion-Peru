@@ -443,3 +443,212 @@ merged_REP4B2.to_csv('../Data/processed/rep4b2_final.dsv', sep='|', index=False)
 
 ```
 
+# First static plot: Total Loans and Annual Growth Rate 
+```{python}
+
+# Load the an03_final.dsv data
+AN3 = pd.read_csv("../Data/processed/an03_final.dsv", delimiter='|', encoding='latin1')
+
+# Aggregate data by month and calculate monthly total for Loans
+monthly_data = AN3.groupby(['YearMonth']).agg({
+    'Loans': 'sum'
+}).reset_index()
+
+# Calculate the annual growth rate for Loans
+monthly_data['Annual_Growth_Rate'] = monthly_data['Loans'].pct_change(12) * 100
+
+# Convert Loans to millions for display in the chart
+monthly_data['Loans_Millions'] = monthly_data['Loans'] / 1_000_000
+
+# Create the combined chart
+# Bar chart for Loans in millions
+bars = alt.Chart(monthly_data).mark_bar(color='lightblue').encode(
+    x=alt.X('YearMonth:T'),
+    y=alt.Y('Loans_Millions:Q', title='Total Loans (Millions)', axis=alt.Axis(format='~s'))
+)
+
+# Line chart for Annual Growth Rate
+lines = alt.Chart(monthly_data).mark_line(color='orange').encode(
+    x=alt.X('YearMonth:T', title='Year'),
+    y=alt.Y('Annual_Growth_Rate:Q', title='Annual Growth Rate (%)', axis=alt.Axis(format='~s'))
+).interactive()
+
+# Combine both charts
+chart = alt.layer(bars, lines).resolve_scale(
+    y='independent'
+).properties(
+    title='Total Loans and Annual Growth Rate',
+    width=400,
+    height=200
+)
+
+# Display the chart
+chart
+
+
+```
+
+# 2 static plot with AN3 -- Loans by creadit type
+
+```{python}
+import pandas as pd
+import altair as alt
+
+# Load the an03_final.dsv data
+AN3 = pd.read_csv("../Data/processed/an03_final.dsv", delimiter='|', encoding='latin1')
+
+# Convert Date column to datetime format
+AN3['Date'] = pd.to_datetime(AN3['Date'], errors='coerce')
+
+# Ensure Loans is in numeric format
+AN3['Loans'] = pd.to_numeric(AN3['Loans'], errors='coerce')
+
+# Create a YearMonth column for grouping and aggregation
+AN3['YearMonth'] = AN3['Date'].dt.to_period('M').astype(str)
+
+# Aggregate data by month and LOAN_TYPE, calculating total for Loans
+monthly_data = AN3.groupby(['YearMonth', 'LOAN_TYPE']).agg({
+    'Loans': 'sum'
+}).reset_index()
+
+# Calculate the annual growth rate for Loans within each LOAN_TYPE
+monthly_data['Annual_Growth_Rate'] = monthly_data.groupby('LOAN_TYPE')['Loans'].pct_change(12) * 100
+
+# Create the line chart
+chart = alt.Chart(monthly_data).mark_line().encode(
+    x=alt.X('YearMonth:T', title='Year'),
+    y=alt.Y('Annual_Growth_Rate:Q', title='Annual Growth Rate (%)'),
+    color=alt.Color('LOAN_TYPE:N', title='Credit Type'),  # Legend for different credit types
+    tooltip=['YearMonth:T', 'LOAN_TYPE:N', 'Annual_Growth_Rate:Q']  # Add tooltips for better interactivity
+).properties(
+    title='Annual Growth Rate of Loans by Credit Type',
+    width=400,
+    height=200
+).interactive()
+
+# Display the chart
+chart
+```
+
+# 3  static plot with AN10 -- Total Deposits and Annual Growth Rate
+
+```{python}
+import pandas as pd
+import altair as alt
+
+# Load the an10_final.dsv data
+AN10 = pd.read_csv("../Data/processed/an10_final.dsv", delimiter='|', encoding='latin1')
+
+# Convert Date column to datetime format
+AN10['Date'] = pd.to_datetime(AN10['Date'], errors='coerce')
+
+# Ensure Deposits column is in numeric format
+AN10['Deposits'] = pd.to_numeric(AN10['Deposits'], errors='coerce')
+
+# Create a YearMonth column for grouping and aggregation
+AN10['YearMonth'] = AN10['Date'].dt.to_period('M').astype(str)
+
+# Aggregate data by month and calculate monthly total for Deposits
+monthly_data = AN10.groupby(['YearMonth']).agg({
+    'Deposits': 'sum'
+}).reset_index()
+
+# Calculate the annual growth rate for Deposits
+monthly_data['Annual_Growth_Rate'] = monthly_data['Deposits'].pct_change(12) * 100
+
+# Convert Deposits to millions for display in the chart
+monthly_data['Deposits_Millions'] = monthly_data['Deposits'] / 1_000_000
+
+# Define y-axis limits based on data range (for example, -50 to 50 for growth rate)
+y_min, y_max = -50, 50
+
+# Create the combined chart
+# Bar chart for Deposits in millions
+bars = alt.Chart(monthly_data).mark_bar(color='lightblue').encode(
+    x=alt.X('YearMonth:T', title='Year'),
+    y=alt.Y('Deposits_Millions:Q', title='Total Deposits (Millions)', axis=alt.Axis(format='~s'))
+)
+
+# Line chart for Annual Growth Rate with specified axis range
+lines = alt.Chart(monthly_data).mark_line(color='orange').encode(
+    x=alt.X('YearMonth:T'),
+    y=alt.Y('Annual_Growth_Rate:Q', title='Annual Growth Rate (%)', scale=alt.Scale(domain=[y_min, y_max]), axis=alt.Axis(titleColor='black'))
+).interactive()
+
+# Combine both charts with independent y-axes but similar range
+chart = alt.layer(bars, lines).resolve_scale(
+    y='independent'
+).properties(
+    title='Total Deposits and Annual Growth Rate',
+    width=400,
+    height=200
+)
+
+# Display the chart
+chart
+
+
+```
+
+
+# Deposits by Region in Peru (January 2020, excluding Lima)",
+
+```{python}
+
+import pandas as pd
+import altair as alt
+import geopandas as gpd
+import json
+
+# Load the GeoJSON file
+geojson_path = "../Data/raw/peru_departamental_simple.geojson"
+geo_data = gpd.read_file(geojson_path)
+
+# Load the AN10 data
+AN10 = pd.read_csv("../Data/processed/an10_final.dsv", delimiter='|', encoding='latin1')
+
+# Rename "Region" to "region" and convert contents to uppercase
+AN10.rename(columns={"Region": "region"}, inplace=True)
+AN10['region'] = AN10['region'].str.upper()
+
+# Convert Date column to datetime format and extract YearMonth as a string
+AN10['Date'] = pd.to_datetime(AN10['Date'], errors='coerce')
+AN10['YearMonth'] = AN10['Date'].dt.to_period('M').astype(str).str.replace("-", "")
+
+# Filter for the specific YearMonth (e.g., "202001" for January 2020)
+AN10_filtered = AN10[AN10['YearMonth'] == "202001"]
+
+# Aggregate AN10_filtered data by region, e.g., summing Deposits for each region
+region_data = AN10_filtered.groupby('region').agg({
+    'Deposits': 'sum'  # Adjust this column name based on available data
+}).reset_index()
+
+# Merge the GeoDataFrame with the filtered AN10 data on "NOMBDEP" in geo_data and "region" in region_data
+merged_geo_data = geo_data.merge(region_data, left_on="NOMBDEP", right_on="region", how="left")
+
+# Filter out LIMA from the merged_geo_data
+merged_geo_data = merged_geo_data[merged_geo_data["region"] != "LIMA"]
+
+# Convert GeoDataFrame to JSON for Altair
+geojson_data = json.loads(merged_geo_data.to_json())
+
+# Create a map using Altair with specified width and height
+map_chart = alt.Chart(alt.Data(values=geojson_data['features'])).mark_geoshape().encode(
+    color=alt.Color('properties.Deposits:Q', title='Total Deposits (2020-01)', scale=alt.Scale(scheme='blues')),
+    tooltip=[
+        alt.Tooltip('properties.NOMBDEP:N', title='Region'),
+        alt.Tooltip('properties.Deposits:Q', title='Deposits')
+    ]
+).project(
+    type='mercator'
+).properties(
+    title="Deposits by Region in Peru (January 2020, excluding Lima)",
+    width=300,
+    height=400
+)
+
+# Display the map
+map_chart
+
+
+```
