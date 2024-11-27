@@ -77,7 +77,32 @@ GeoJSON File: A geographic representation of Peru’s regions used for visualizi
   - **Merging with Aggregated Data:** Merge aggregated loan and deposit data by region and `YearMonth` into the GeoJSON file for creating choropleth maps.
   - **Standardization:** Resolve any discrepancies in naming conventions or missing regions to ensure smooth visualization.
 
+```{python}
+import pandas as pd
 
+# Load the data
+file_path = "Data/exportAN10v2.dsv"
+output_path = "Data/exportAN10v3.dsv"
+
+try:
+    # Assuming the file is tab-separated (.dsv often uses tabs as delimiter)
+    data = pd.read_csv(file_path, sep="|")
+    
+    # Ensure the column 'PERIODO_ID' exists
+    if 'PERIODO_ID' in data.columns:
+        # Filter the data where PERIODO_ID is greater than 20120101
+        filtered_data = data[data['PERIODO_ID'] > 20120101]
+        
+        # Save the filtered data back to a .dsv file
+        filtered_data.to_csv(output_path, sep="|", index=False)
+        print(f"Filtered data saved to '{output_path}'.")
+    else:
+        print("The column 'PERIODO_ID' was not found in the dataset.")
+except FileNotFoundError:
+    print(f"The file '{file_path}' does not exist.")
+except Exception as e:
+    print(f"An error occurred: {e}")
+```
 
 ```{python}
 #| warning: false
