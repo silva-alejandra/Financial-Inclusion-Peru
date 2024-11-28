@@ -46,11 +46,9 @@ an03_aggregated = an03.groupby(['YearMonth', 'FI_TYPE', 'LOAN_TYPE', 'industry_c
 
 
 
-# Define UI for Shiny app add a input_sidebar ( ui.sidebar (data slicer and checkbox))
 
+#APP
 
-
-# Update the UI layout to include a third value box for the number of financial institutions
 app_ui = ui.page_fluid(
     ui.h1("Financial Inclusion in Peru"),
 
@@ -248,4 +246,6 @@ def server(input, output, session):
                     width=200,
                     height=200)
         return bar_chart 
+
+        
 app = App(app_ui, server)

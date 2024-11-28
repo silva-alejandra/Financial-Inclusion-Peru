@@ -444,6 +444,10 @@ merged_REP4B2.to_csv('../Data/processed/rep4b2_final.dsv', sep='|', index=False)
 ```
 
 # First static plot: Total Loans and Annual Growth Rate 
+
+The graph's sharp drop in the annual growth rate of loans in 2020 can be contextualized by events like the economic impact of the COVID-19 pandemic and the widespread reprogramming of loans by financial institutions in Peru. According to a report by SBS, Peruvian financial entities rescheduled approximately S/ 92 billion in loans to alleviate the financial burden on borrowers during this period. This large-scale loan restructuring likely contributed to the significant decline in growth rates, as financial institutions focused on managing existing loans rather than issuing new ones. The stabilization of total loans post-2020 reflects the effects of these measures, with a slower recovery in lending activity as the economy adjusted to the pandemic's aftermath. This highlights how economic policies and financial system adaptations during crises directly impact loan growth and overall credit trends.
+
+
 ```{python}
 
 # Load the an03_final.dsv data
