@@ -365,21 +365,20 @@ def server(input, output, session):
     def loans_by_industry_pie():
         data = filtered_an3()
         
-        data = data.groupby('industry_cat', as_index=False)['Loans'].sum()
+        loans_by_industry = data.groupby('industry_cat', as_index=False)['Loans'].sum()
+        loans_by_industry = loans_by_industry.sort_values(by='Loans', ascending=False)
 
-        pie_chart = alt.Chart(data).mark_arc().encode(
-            theta=alt.Theta('Loans:Q', title="Total Loans"),
-            color=alt.Color('industry_cat:N', title="Industry Category", sort='-x'),  
-            tooltip=[alt.Tooltip('industry_cat:N', title='Industry'), alt.Tooltip('Loans:Q', title='Total Loans')]
-         ).properties(
-            title="Total Loans by Industry",
-            width=250, 
-            height=300 
-        ).sort(alt.EncodingSortField(
-            field="Loans",  
-            order="descending"  
-        ))
-
+        pie_chart = alt.Chart(loans_by_industry).mark_arc().encode(
+            theta=alt.Theta(field="Loans", type="quantitative", title="Total Loans"),
+            color=alt.Color(field="industry_cat", type="nominal", title="Industry Category"),
+            tooltip=[
+                alt.Tooltip('industry_cat:N', title="Industry"),
+                alt.Tooltip('Loans:Q', title="Total Loans", format=",")
+            ]
+        ).properties(
+            width=250,
+            height=300
+        )
         
         return pie_chart
 
