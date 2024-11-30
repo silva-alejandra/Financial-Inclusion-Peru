@@ -20,6 +20,8 @@ an10_aggregated = an10.groupby(['YearMonth', 'Region'], as_index=False).agg({
     'Loans': lambda x: x.sum() / 1_000_000     # Convert to millions
 })
 
+an10_aggregated = an10_aggregated[an10_aggregated['YearMonth'] >= '2019-01']
+
 # Merge GeoDataFrame with deposit data on region column
 an10_geo_data = geo_data.merge(
     an10_aggregated, left_on="NOMBDEP", right_on="Region", how="left")
@@ -35,50 +37,7 @@ rep4b2_aggregated = rep4b2.groupby(
 rep4b2_aggregated = rep4b2_aggregated.sort_values(
     by='Loans', ascending=False)  # Sort by loan value
 
-# Preprocess an03 data
-an03['YearMonth'] = an03['Date'].astype(str).str[:7]
-
-an03_aggregated = an03.groupby(['YearMonth', 'FI_TYPE', 'LOAN_TYPE', 'industry_cat'], as_index=False).agg({
-    'Loans': lambda x: x.sum() / 1_000_000,  
-    'Loans_new': lambda x: x.sum() / 1_000,
-    'Debtors':  lambda x: x.sum() / 1_000  
-})
-
-import pandas as pd
-import altair as alt
-import geopandas as gpd
-from shiny import App, render, ui, reactive
-from shinywidgets import render_widget, output_widget
-
-# Load the GeoJSON data and deposit data
-geo_data = gpd.read_file("Data/raw/peru_departamental_simple.geojson")
-an10 = pd.read_csv("Data/processed/an10_final.dsv", sep="|")
-rep4b2 = pd.read_csv("Data/processed/rep4b2_final.dsv", sep="|")
-an03 = pd.read_csv("Data/processed/an03_final.dsv", sep="|")
-
-# Preprocess an10 data
-an10['YearMonth'] = an10['Date'].astype(str).str[:7]
-
-an10_aggregated = an10.groupby(['YearMonth', 'Region'], as_index=False).agg({
-    'Deposits': lambda x: x.sum() / 1_000_000,  # Convert to millions
-    'Loans': lambda x: x.sum() / 1_000_000     # Convert to millions
-})
-
-# Merge GeoDataFrame with deposit data on region column
-an10_geo_data = geo_data.merge(
-    an10_aggregated, left_on="NOMBDEP", right_on="Region", how="left"
-)
-
-date_options = sorted(an10_geo_data['YearMonth'].unique())
-
-# Preprocess rep4b2 data
-rep4b2['YearMonth'] = rep4b2['Date'].astype(str).str[:7]
-
-rep4b2_aggregated = rep4b2.groupby(
-    ['YearMonth', 'industry_category'], as_index=False)['Loans'].sum()
-rep4b2_aggregated = rep4b2_aggregated.sort_values(
-    by='Loans', ascending=False  # Sort by loan value
-)
+rep4b2_aggregated = rep4b2_aggregated[rep4b2_aggregated['YearMonth'] >= '2019-01']
 
 # Preprocess an03 data
 an03['YearMonth'] = an03['Date'].astype(str).str[:7]
@@ -89,9 +48,14 @@ an03_aggregated = an03.groupby(['YearMonth', 'FI_TYPE', 'LOAN_TYPE', 'industry_c
     'Debtors':  lambda x: x.sum() / 1_000  
 })
 
-# Helper function to create unique sidebars
+an03_aggregated = an03_aggregated[an03_aggregated['YearMonth'] >= '2019-01']
+
+### Building the UI 
+
+# Step 1: Function to create unique sidebars
 def create_sidebar(page):
-    return ui.sidebar(
+    return 
+    ui.sidebar(
         ui.input_select(
             f"selected_date_{page}",
             "Select Date (Month-Year):",
@@ -105,11 +69,23 @@ def create_sidebar(page):
         )
     )
 
-# Page: By Region
+# Step 2: Page By Region
 page_by_region = ui.page_fluid(
     ui.h1("Financial Inclusion by Region"),
     ui.layout_sidebar(
-        create_sidebar("region"),
+            ui.sidebar(
+                ui.input_select(
+                    "selected_date_region",
+                    "Select Date (Month-Year):",
+                    choices=date_options,
+                    selected=date_options[0]
+                ),
+                ui.input_checkbox(
+                    "include_lima_region",
+                    "Include Lima",
+                    value=True
+        )
+    ),
         ui.layout_column_wrap(
             3,  # Three boxes in one row
             ui.value_box(
@@ -147,11 +123,23 @@ page_by_region = ui.page_fluid(
     )
 )
 
-# Page: By Industry
+# Step 3: Page By Industry
 page_by_industry = ui.page_fluid(
     ui.h1("Financial Inclusion by Industry"),
     ui.layout_sidebar(
-        create_sidebar("industry"),
+        ui.sidebar(
+            ui.input_select(
+                "selected_date_industry",
+                "Select Date (Month-Year):",
+                choices=date_options,
+                selected=date_options[0]
+            ),
+            ui.input_checkbox(
+                "include_personal_mortgage_loans",
+                 "Include Personal/Mortgage Loans",
+                  value=True
+        )
+    ),
         ui.layout_column_wrap(
             3,  # Three boxes in one row
             ui.value_box(
@@ -160,8 +148,8 @@ page_by_industry = ui.page_fluid(
                 full_screen=True
             ),
             ui.value_box(
-                title="Sum of Deposits (Millions)",
-                value=ui.output_text("sum_deposits_industry"),
+                title="Num. Debtors (Thousands)",
+                value=ui.output_text("sum_debtors_industry"),
                 full_screen=True
             ),
             ui.value_box(
@@ -172,32 +160,37 @@ page_by_industry = ui.page_fluid(
         ),
         ui.layout_columns(
             ui.column(
-                12,
+             12,   
             ui.card(
                 ui.card_header("Total Loans by Industry"),
-                output_widget("loans_by_industry")
+                output_widget("loans_by_industry_pie"),
+                width=500,  
+                height=400,  
             )
 
             ),
             ui.column(
                 12,
                 ui.card(
-                    ui.card_header("Total New Loans by Industry Category"),
-                    output_widget("new_loans_by_industry")
+                    ui.card_header("Number of debtors and the average loan by Industry"),
+                    output_widget("scatter_loans_vs_debtors"),
+                    width=600,  
+                    height=400, 
                 )
             )
         )
     )
 )
 
-# Main App UI
+# Step 4: Main App UI
 app_ui = ui.page_navbar(
     ui.nav_panel("By Region", page_by_region),
     ui.nav_panel("By Industry", page_by_industry),
     title="Financial Inclusion Dashboard"
 )
 
-# Server logic
+### Building the Server Logic
+ 
 def server(input, output, session):
     # By Region
     @reactive.Calc
@@ -263,26 +256,22 @@ def server(input, output, session):
     @reactive.Calc
     def filtered_an3():
         selected_data = an03_aggregated[an03_aggregated['YearMonth'] == input.selected_date_industry()]
+        if not input.include_personal_mortgage_loans():
+            selected_data = selected_data[selected_data['industry_cat'] != "Personal/Mortgage loans"]
         return selected_data
 
-    @reactive.Calc
-    def filtered_an10_industry():
-        selected_data = an10_geo_data[an10_geo_data['YearMonth'] == input.selected_date_region()]
-        if not input.include_lima_region():
-            selected_data = selected_data[selected_data['NOMBDEP'] != "LIMA"]
-        return selected_data
 
     @output
     @render.text
     def sum_loans_industry():
-        total_loans = filtered_an10_industry()['Loans'].sum()
+        total_loans = filtered_an3()['Loans'].sum()
         return f"{total_loans:,.0f} M"
 
     @output
     @render.text
-    def sum_deposits_industry():
-        total_deposits = filtered_an10_industry()['Deposits'].sum()
-        return f"{total_deposits:,.0f} M"
+    def sum_debtors_industry():
+        total_deposits = filtered_an3()['Debtors'].sum()
+        return f"{total_deposits:,.0f} K"
 
     @output
     @render.text
@@ -290,25 +279,31 @@ def server(input, output, session):
         unique_institutions = an10[an10['YearMonth'] == input.selected_date_industry()]['CODIGO_ENTIDAD_ID'].nunique()
         return f"{unique_institutions:,}"
 
-
     @output
     @render_widget
     def loans_by_industry():
-        data = filtered_an3()[filtered_an3()['industry_cat'] != 'Personal/Mortgage loans']
+        data = filtered_an3()
 
-        bar_chart = alt.Chart(data).mark_bar().encode(
-            y=alt.Y('industry_cat:N', sort='-x', title="Industry Category"),
-            x=alt.X('Loans:Q', title="Total Loans"),
+        pie_chart = alt.Chart(data).mark_arc().encode(
+            theta=alt.Theta('Loans:Q', title="Total Loans"),
+            color=alt.Color('industry_cat:N', title="Industry Category", sort='-x'),  # Sorting categories in descending order
             tooltip=[alt.Tooltip('industry_cat:N', title='Industry'), alt.Tooltip('Loans:Q', title='Total Loans')]
         ).properties(
-                    width=200,
-                    height=300)
-        return bar_chart 
+            title="Total Loans by Industry (Sorted)",
+            width=400,  # Adjust the width for better visibility
+            height=400  # Adjust the height as needed
+        ).sort(alt.EncodingSortField(
+            field="Loans",  # Sort by loan amounts
+            order="descending"  # Order from highest to lowest
+        ))
+
+
+        return pie_chart 
 
     @output
     @render_widget
     def new_loans_by_industry():
-        data = filtered_an3()[filtered_an3()['industry_cat'] != 'Personal/Mortgage loans']
+        data = filtered_an3()
 
         bar_chart = alt.Chart(data).mark_bar().encode(
             y=alt.Y('industry_cat:N', sort='-x', title="Industry Category"),
@@ -322,7 +317,7 @@ def server(input, output, session):
     @output
     @render_widget
     def debtors_by_industry():       
-        data = filtered_an3()[filtered_an3()['industry_cat'] != 'Personal/Mortgage loans']
+        data = filtered_an3()
         bar_chart = alt.Chart(data).mark_bar().encode(
             y=alt.Y('industry_cat:N', sort='-x', title="Industry Category"),
             x=alt.X('Debtors:Q', title="Number of debtors"),
@@ -332,8 +327,63 @@ def server(input, output, session):
                     height=300)
         return bar_chart 
 
+
+    @output
+    @render_widget
+    def scatter_loans_vs_debtors():
+        x_max = 500  # Max for Number of Debtors
+        y_max = 500  # Max for Average Loan per Debtor
+
+        data = filtered_an3()
+        grouped_data = data.groupby('industry_cat', as_index=False).agg({
+            'Loans': 'sum',
+            'Debtors': 'sum'
+        })
+        grouped_data['average_loan_per_debtor'] = grouped_data['Loans'] / grouped_data['Debtors']
+        grouped_data = grouped_data[(grouped_data['Debtors'] <= x_max) & (grouped_data['average_loan_per_debtor'] <= y_max)]
+
+        scatter_plot = alt.Chart(grouped_data).mark_circle(size=60).encode(
+            x=alt.X('Debtors:Q', title="Number of Debtors",
+                     scale=alt.Scale(zero=False, domain=[0, x_max])),
+            y=alt.Y('average_loan_per_debtor:Q', title="Average Loan per Debtor (in millions)",
+                     scale=alt.Scale(zero=False, domain=[0, y_max])),
+            color=alt.Color('industry_cat:N', title="Industry Category"),
+            tooltip=[
+                alt.Tooltip('industry_cat:N', title="Industry"),
+                alt.Tooltip('Debtors:Q', title="Number of Debtors", format=','),
+                alt.Tooltip('average_loan_per_debtor:Q', title="Average Loan per Debtor", format=',.2f')
+            ]
+        ).properties(
+            width=250,
+            height=250
+        )
+
+        return scatter_plot
+
+    @output
+    @render_widget
+    def loans_by_industry_pie():
+        data = filtered_an3()
         
+        data = data.groupby('industry_cat', as_index=False)['Loans'].sum()
+
+        pie_chart = alt.Chart(data).mark_arc().encode(
+            theta=alt.Theta('Loans:Q', title="Total Loans"),
+            color=alt.Color('industry_cat:N', title="Industry Category", sort='-x'),  
+            tooltip=[alt.Tooltip('industry_cat:N', title='Industry'), alt.Tooltip('Loans:Q', title='Total Loans')]
+         ).properties(
+            title="Total Loans by Industry",
+            width=250, 
+            height=300 
+        ).sort(alt.EncodingSortField(
+            field="Loans",  
+            order="descending"  
+        ))
+
         
+        return pie_chart
+
+            
 # Run the app
 app = App(app_ui, server)
 
