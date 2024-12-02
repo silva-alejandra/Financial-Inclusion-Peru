@@ -346,9 +346,9 @@ def server(input, output, session):
     @output
     @render_widget
     def scatter_loans_vs_debtors():
-        x_max = 500  # Max for Number of Debtors
-        y_max = 500  # Max for Average Loan per Debtor
-
+        x_max = 500  
+        y_max = 500  
+        
         data = filtered_an3()
         grouped_data = data.groupby('industry_cat', as_index=False).agg({
             'Loans': 'sum',

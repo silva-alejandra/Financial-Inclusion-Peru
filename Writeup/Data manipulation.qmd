@@ -586,8 +586,92 @@ chart
 
 ```
 
+#### Deposits by Region in Peru (January 2020, excluding Lima)",
+
+```{python}
+import pandas as pd
+import altair as alt
+import geopandas as gpd
+import json
+
+# Load the GeoJSON file
+geojson_path = "../Data/raw/peru_departamental_simple.geojson"
+geo_data = gpd.read_file(geojson_path)
+
+# Load the AN10 data
+AN10 = pd.read_csv("../Data/processed/an10_final.dsv", delimiter='|', encoding='latin1')
+
+# Rename "Region" to "region" and convert contents to uppercase
+AN10.rename(columns={"Region": "region"}, inplace=True)
+AN10['region'] = AN10['region'].str.upper()
+
+# Convert Date column to datetime format and extract YearMonth as a string
+AN10['Date'] = pd.to_datetime(AN10['Date'], errors='coerce')
+AN10['YearMonth'] = AN10['Date'].dt.to_period('M').astype(str).str.replace("-", "")
+
+# Filter for the specific YearMonth (e.g., "202001" for January 2020)
+AN10_filtered = AN10[AN10['YearMonth'] == "202001"]
+
+# Aggregate AN10_filtered data by region
+region_data = AN10_filtered.groupby('region').agg({
+    'Deposits': 'sum' ,
+    'Loans': 'sum' 
+}).reset_index()
+
+# Merge the GeoDataFrame with the filtered AN10 
+merged_geo_data = geo_data.merge(region_data, left_on="NOMBDEP", right_on="region", how="left")
+
+# Filter out LIMA from the merged_geo_data
+merged_geo_data = merged_geo_data[merged_geo_data["region"] != "LIMA"]
+
+# Convert GeoDataFrame to JSON for Altair
+geojson_data = json.loads(merged_geo_data.to_json())
+
+# Create a Loans map
+
+loans_map_chart = alt.Chart(alt.Data(values=geojson_data['features'])).mark_geoshape().encode(
+    color=alt.Color('properties.Loans:Q', title='Total Loans (2020-01)', scale=alt.Scale(scheme='reds')),
+    tooltip=[
+        alt.Tooltip('properties.NOMBDEP:N', title='Region'),
+        alt.Tooltip('properties.Loans:Q', title='Loans')
+    ]
+).project(
+    type='mercator'
+).properties(
+    title="Loans by Region in Peru (January 2020, excluding Lima)",
+    width=300,
+    height=400
+)
+
+
+
+# # Create a Deposits map
+
+dep_map_chart = alt.Chart(alt.Data(values=geojson_data['features'])).mark_geoshape().encode(
+    color=alt.Color('properties.Deposits:Q', title='Total Deposits (2020-01)', scale=alt.Scale(scheme='blues')),
+    tooltip=[
+        alt.Tooltip('properties.NOMBDEP:N', title='Region'),
+        alt.Tooltip('properties.Deposits:Q', title='Deposits')
+    ]
+).project(
+    type='mercator'
+).properties(
+    title="Deposits by Region in Peru (January 2020, excluding Lima)",
+    width=300,
+    height=400
+)
+
+
+
+
+loans_map_chart |  dep_map_chart
+
+
+```
 
 #### Deposits by Region in Peru (January 2020, excluding Lima)",
+
+
 
 ```{python}
 
@@ -616,7 +700,8 @@ AN10_filtered = AN10[AN10['YearMonth'] == "202001"]
 
 # Aggregate AN10_filtered data by region, e.g., summing Deposits for each region
 region_data = AN10_filtered.groupby('region').agg({
-    'Deposits': 'sum'  # Adjust this column name based on available data
+    'Deposits': 'sum' ,
+    'Loans': 'sum' 
 }).reset_index()
 
 # Merge the GeoDataFrame with the filtered AN10 data on "NOMBDEP" in geo_data and "region" in region_data
