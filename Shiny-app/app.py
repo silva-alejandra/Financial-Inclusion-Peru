@@ -292,19 +292,6 @@ def server(input, output, session):
         )]['CODIGO_ENTIDAD_ID'].nunique()
         return f"{unique_institutions:,}"
 
-    @output
-    @render_widget
-    def debtors_by_industry():
-        data = filtered_an3()
-        bar_chart = alt.Chart(data).mark_bar().encode(
-            y=alt.Y('industry_cat:N', sort='-x', title="Industry Category"),
-            x=alt.X('Debtors:Q', title="Number of debtors"),
-            tooltip=[alt.Tooltip('industry_cat:N', title='Industry'), alt.Tooltip(
-                'Loans:Q', title='Total Loans')]
-        ).properties(
-            width=200,
-            height=300)
-        return bar_chart
 
     @output
     @render_widget
@@ -331,7 +318,7 @@ def server(input, output, session):
             tooltip=[
                 alt.Tooltip('industry_cat:N', title="Industry"),
                 alt.Tooltip(
-                    'Debtors:Q', title="Number of Debtors", format=','),
+                    'Debtors:Q', title="Number of Debtors", format=',.2f'),
                 alt.Tooltip('average_loan_per_debtor:Q',
                             title="Average Loan per Debtor", format=',.2f')
             ]
@@ -345,7 +332,6 @@ def server(input, output, session):
     @output
     @render_widget
     def loans_by_industry_pie():
-
         data = filtered_an3()
         loans_by_industry = data.groupby('industry_cat', as_index=False)['Loans'].sum()
 
@@ -354,23 +340,17 @@ def server(input, output, session):
 
         # Create the pie chart using Altair
         pie_chart = alt.Chart(loans_by_industry_sorted).mark_arc().encode(
-            theta=alt.Theta(field="Loans", type="quantitative",
-                             title="Total Loans", sort = "y"),
-            color=alt.Color(field="industry_cat",
-                             type="nominal",
-                             title="Industry Category", sort = None),
+            theta=alt.Theta(field="Loans", type="quantitative", title="Total Loans"),
+            color=alt.Color(field="industry_cat", type="nominal", title="Industry Category"),
             tooltip=[
                 alt.Tooltip('industry_cat:N', title="Industry"),
-                alt.Tooltip('Loans:Q', title="Total Loans", format=",")
+                alt.Tooltip('Loans:Q', title="Total Loans", format=',.2f')
             ]
         ).properties(
             width=250,
             height=300
         )
-
-        # Return or render the pie chart in the Shiny dashboard
         return pie_chart
-
 
 # Run the app
 app = App(app_ui, server)
