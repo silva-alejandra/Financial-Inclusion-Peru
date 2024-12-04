@@ -1,6 +1,7 @@
 ---
 title: "30538 Final Project: Financial Inclusion in Peru"
 author: "Alejandra Silva"
+Github user: aosilva08
 date: "2024-10-03"
 format: 
   html:
@@ -557,7 +558,17 @@ The app integrates multiple panels using `ui.page_navbar()`, allowing seamless n
 
 Finally, the Shiny app was deployed to provide an interactive **Financial Inclusion Dashboard**, aimed at visualizing key financial metrics across regions and industries. It utilizes public data from the Financial Authority of Peru (SBS) and the National Institute of Statistics and Information of Peru (INEI).
 
-## 5. Limitations and Next Steps
+## 5. Conclusions
+
+This project examines financial inclusion in Peru, focusing on the challenges and opportunities of a centralized financial system. Peru’s economic activity is heavily concentrated in Lima, which limits access to financial services for other regions. This analysis aims to understand the evolution of loans and deposits over the last decade, explore how this behavior varies across different loan types, and analyze financial activity both regionally and by industry.
+
+The analysis relies on data provided by Peru’s Financial Stability Authority and the National Institute of Statistics and Information. Multiple datasets, including those detailing financial institutions, industry classifications, and geographic regions, were merged to create a comprehensive view of the financial landscape. Data cleaning involved standardizing formats, translating fields, and focusing on information from 2012 onwards to ensure consistency and accuracy.
+
+The findings reveal that financial activity remains largely concentrated in Lima, but there are signs of gradual growth in other regions and sectors. Credit showed a steady upward trend prior to the COVID-19 pandemic, followed by a sharp contraction of approximately 40% in 2020 due to the economic shock. Despite this, targeted government interventions like the Reactiva Peru program helped to stabilize the financial system and promote recovery, especially in the business sector.
+
+Further analysis into loan types indicated that government relief measures initially targeted businesses to sustain operations and were later extended to households, enabling a more balanced recovery. Deposits, on the other hand, demonstrated resilience during the pandemic, highlighting the inclination of individuals and businesses to save during uncertain times. The geographical distribution of loans and deposits, analyzed through a Shiny dashboard, illustrated that financial inclusion still needs significant expansion outside Lima, with specific focus areas being SMEs and underserved industries.
+
+## 6. Limitations and Next Steps
 
 The analysis in this project has some limitations that need to be addressed for future improvement. The data primarily focuses on regional and sectoral levels, which restricts the ability to drill down to individual borrower behavior and household-level insights. Additionally, the analysis lacks detailed demographic information that could provide a richer context on the factors influencing financial inclusion. Moving forward, incorporating more detailed metrics, such as credit-to-GDP ratios and demographic characteristics, will help provide a better understanding of the financial landscape. Furthermore, a peer group analysis of financial institutions, considering volume and concentration metrics, can help assess competitiveness and identify gaps in access to financial services. These steps will contribute towards a more comprehensive approach to addressing disparities in financial inclusion across different regions and sectors in Peru.
 
