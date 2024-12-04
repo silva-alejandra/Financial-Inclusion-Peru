@@ -8,7 +8,6 @@ from shinywidgets import render_widget, output_widget
 # Load the GeoJSON data and deposit data
 geo_data = gpd.read_file("Data/raw/peru_departamental_simple.geojson")
 an10 = pd.read_csv("Data/processed/an10_final.dsv", sep="|")
-rep4b2 = pd.read_csv("Data/processed/rep4b2_final.dsv", sep="|")
 an03 = pd.read_csv("Data/processed/an03_final.dsv", sep="|")
 
 
@@ -27,17 +26,6 @@ an10_geo_data = geo_data.merge(
     an10_aggregated, left_on="NOMBDEP", right_on="Region", how="left")
 
 date_options = sorted(an10_geo_data['YearMonth'].unique())
-
-
-# Preprocess rep4b2 data
-rep4b2['YearMonth'] = rep4b2['Date'].astype(str).str[:7]
-
-rep4b2_aggregated = rep4b2.groupby(
-    ['YearMonth', 'industry_category'], as_index=False)['Loans'].sum()
-rep4b2_aggregated = rep4b2_aggregated.sort_values(
-    by='Loans', ascending=False)  # Sort by loan value
-
-rep4b2_aggregated = rep4b2_aggregated[rep4b2_aggregated['YearMonth'] >= '2019-01']
 
 # Preprocess an03 data
 an03['YearMonth'] = an03['Date'].astype(str).str[:7]
@@ -87,8 +75,15 @@ page_by_region = ui.page_fluid(
                 "include_lima_region",
                 "Include Lima",
                 value=True
-            )
+            ),
+        
+            ui.hr(),  # Optional horizontal rule for separation
+            ui.p("Visualizations included in this Dashboard utilize public information from:"),
+            ui.p("(1) The Financial Authority of Peru - SBS"),
+            ui.p("(2) National Institute of Statistics and Information of Peru - INEI"),
+            style="color: gray; font-size: 0.85em;"
         ),
+
         ui.layout_column_wrap(
             3,  # Three boxes in one row
             ui.value_box(
@@ -141,8 +136,14 @@ page_by_industry = ui.page_fluid(
                 "include_personal_mortgage_loans",
                 "Include Personal/Mortgage Loans",
                 value=True
-            )
+            ),
+            ui.hr(),  # Optional horizontal rule for separation
+            ui.p("Visualizations included in this Dashboard utilize public information from:"),
+            ui.p("(1) The Financial Authority of Peru - SBS"),
+            ui.p("(2) National Institute of Statistics and Information of Peru - INEI"),
+            style="color: gray; font-size: 0.85em;"
         ),
+
         ui.layout_column_wrap(
             3,  # Three boxes in one row
             ui.value_box(
@@ -293,44 +294,6 @@ def server(input, output, session):
 
     @output
     @render_widget
-    def loans_by_industry():
-        data = filtered_an3()
-
-        pie_chart = alt.Chart(data).mark_arc().encode(
-            theta=alt.Theta('Loans:Q', title="Total Loans"),
-            # Sorting categories in descending order
-            color=alt.Color('industry_cat:N',
-                            title="Industry Category", sort='-x'),
-            tooltip=[alt.Tooltip('industry_cat:N', title='Industry'), alt.Tooltip(
-                'Loans:Q', title='Total Loans')]
-        ).properties(
-            title="Total Loans by Industry (Sorted)",
-            width=400,  # Adjust the width for better visibility
-            height=400  # Adjust the height as needed
-        ).sort(alt.EncodingSortField(
-            field="Loans",  # Sort by loan amounts
-            order="descending"  # Order from highest to lowest
-        ))
-
-        return pie_chart
-
-    @output
-    @render_widget
-    def new_loans_by_industry():
-        data = filtered_an3()
-
-        bar_chart = alt.Chart(data).mark_bar().encode(
-            y=alt.Y('industry_cat:N', sort='-x', title="Industry Category"),
-            x=alt.X('Loans_new:Q', title="Total New Loans"),
-            tooltip=[alt.Tooltip('industry_cat:N', title='Industry'), alt.Tooltip(
-                'Loans:Q', title='Total Loans')]
-        ).properties(
-            width=200,
-            height=300)
-        return bar_chart
-
-    @output
-    @render_widget
     def debtors_by_industry():
         data = filtered_an3()
         bar_chart = alt.Chart(data).mark_bar().encode(
@@ -348,7 +311,7 @@ def server(input, output, session):
     def scatter_loans_vs_debtors():
         x_max = 500  
         y_max = 500  
-        
+
         data = filtered_an3()
         grouped_data = data.groupby('industry_cat', as_index=False).agg({
             'Loans': 'sum',
@@ -382,18 +345,20 @@ def server(input, output, session):
     @output
     @render_widget
     def loans_by_industry_pie():
+
         data = filtered_an3()
+        loans_by_industry = data.groupby('industry_cat', as_index=False)['Loans'].sum()
 
-        loans_by_industry = data.groupby(
-            'industry_cat', as_index=False)['Loans'].sum()
-        loans_by_industry = loans_by_industry.sort_values(
-            by='Loans', ascending=False)
+        # Sort the data by the sum of loans in descending order
+        loans_by_industry_sorted = loans_by_industry.sort_values(by='Loans', ascending=False)
 
-        pie_chart = alt.Chart(loans_by_industry).mark_arc().encode(
+        # Create the pie chart using Altair
+        pie_chart = alt.Chart(loans_by_industry_sorted).mark_arc().encode(
             theta=alt.Theta(field="Loans", type="quantitative",
-                            title="Total Loans"),
-            color=alt.Color(field="industry_cat", type="nominal",
-                            title="Industry Category"),
+                             title="Total Loans", sort = "y"),
+            color=alt.Color(field="industry_cat",
+                             type="nominal",
+                             title="Industry Category", sort = None),
             tooltip=[
                 alt.Tooltip('industry_cat:N', title="Industry"),
                 alt.Tooltip('Loans:Q', title="Total Loans", format=",")
@@ -403,6 +368,7 @@ def server(input, output, session):
             height=300
         )
 
+        # Return or render the pie chart in the Shiny dashboard
         return pie_chart
 
 

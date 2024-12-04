@@ -7,8 +7,11 @@ format:
     code-overflow: wrap   
 execute:
   eval: true          
-  echo: false          
+  echo: false      
 ---
+
+
+<div style="text-align: justify"> 
 
 ## Executive Summary
 
@@ -26,29 +29,41 @@ The primary objective of this project is to assess the state of financial inclus
 
 The findings will provide insight into how regional disparities in financial access can be addressed and the role targeted interventions might play in supporting economic growth and financial stability.
 
-## 2. Data and Methodology
+## 2. Data
 
-The data for this analysis comes from multiple sources, primarily the Financial Stability Authority of Peru and the Central Bank of Peru. The datasets used include:
+The data for this analysis comes primarily from the Financial Stability Authority of Peru and the National Institute of Statistics and Information of Peru (See Figure 1). The datasets used include:
 
-- Annex 3 and 10 datasets, which provide detailed information on loans, deposits, and their distribution across different sectors and regions.
+**Financial Authority of Peru - SBS**:
 
-- Two dimensional tables, which help categorize financial institutions and identify their geographical locations.
+- **Annex 10**: Contains data on loans and deposits, including financial institution codes (FI Codes) and geographic information such as zip codes.
+- **Annex 3**: Provides further details on loans, new loans, debtors, and includes industry classification codes and FI codes.
+- **Financial Institution Details**: Describes various financial institutions, such as their names, types, and associated codes.
 
-- GeoJSON file, used for visualizing the geographical distribution of financial activity across Peru.
+**Institute of Statistics and Information of Peru - INEI**:
 
-The methodology involves several steps:
+- **Industry Details**: Contains classification codes for industries, detailing sector, sub-sector, and their respective names.
 
-- Data Cleaning and Preparation: Data was cleaned, with fields standardized, translated, and formatted to make the analysis accessible and comprehensible. Unnecessary data points were filtered out, focusing mainly on data from 2012 onwards.
+**Open Source Github**:
 
-- Merging Datasets: Multiple datasets were merged to provide a more comprehensive understanding of the financial landscape, ensuring consistency by using key identifiers such as dates, financial institution codes and geographical areas.
+- **Peru GeoJSON**: Geographic data, represented by zip codes, providing geographical features of different regions.
 
-- Exploratory Data Analysis: Data was explored to identify trends, relationships, and outliers, focusing on loans and deposits, both geographically and by economic sector.
+![Figure 1: Data used](Images/Datasets.png)
 
-- Visual Analysis: Using tools like Altair and Shiny, visualizations were created to illustrate the regional concentration of loans and deposits, highlighting disparities between Lima and other regions.
+## 3. Data preprocessing and manipulation
+
+The methodology for this analysis involved several key steps including data preparation, merging data, exploratory analysis and visualizations. For readability, I will explain each code used in the methodology step by step.
+
+### 3.1 Code Snippet 1: Loading and Preprocessing Data
+
+I started by loading all datasets using Pandas, storing them in a dictionary (`dataframes`). Then, I implemented error handling during file loading to ensure that any issues in one dataset didn’t disrupt the entire process.
+
+I created a Date column by converting `PERIODO_ID` to a proper datetime format and filtered the data to include only records from 2012 onwards. Additionally, I created a `YearMonth` column to facilitate grouping by year and month.
 
 ```{python}
 #| warning: false
 #| include: false
+
+### 2.1  Code Snippet 1: Loading and Preprocessing Data
 
 import pandas as pd
 import altair as alt
@@ -59,10 +74,8 @@ from pathlib import Path
 # File paths for datasets
 file_paths = {
     "AN3": "../Data/raw/exportAN3.dsv",
-    "AN10": "../Data/raw/exportAN10v2.dsv",
+    "AN10": "../Data/raw/exportAN10v3.dsv",
     "ENTIDAD": "../Data/raw/exportENTIDAD.dsv",
-    "REP4B2": "../Data/raw/exportREP4B2.dsv",
-    "REP4B3": "../Data/raw/exportREP4B3.dsv",
     "UBIGEO": "../Data/raw/exportUBIGEO.dsv"
 }
 
@@ -75,7 +88,7 @@ for name, path in file_paths.items():
         print(f"Error loading {name}: {e}")
 
 # Preprocess DataFrames (apply common transformations)
-for name in ['AN3', 'AN10', 'REP4B2', 'REP4B3']:
+for name in ['AN3', 'AN10']:
     if name in dataframes:
         df = dataframes[name]
         if 'PERIODO_ID' in df.columns:
@@ -86,20 +99,25 @@ for name in ['AN3', 'AN10', 'REP4B2', 'REP4B3']:
             dataframes[name] = df
 
 # Access processed dataframes
-AN3, AN10, REP4B2, REP4B3, ENTIDAD, UBIGEO = (
+AN3, AN10,ENTIDAD, UBIGEO = (
     dataframes['AN3'],
     dataframes['AN10'],
-    dataframes['REP4B2'],
-    dataframes['REP4B3'],
     dataframes['ENTIDAD'],
     dataframes['UBIGEO']
 )
 
 ```
 
+
+### 3.2 Code Snippet 2: Mapping Financial Institutions
+
+The dataset `ENTIDAD` included information about financial institutions, much of which was in Spanish. I translated these institution types into English for consistency. Using a dictionary called `fi_type_mapping`, I mapped Spanish descriptions to English for the `FI_TYPE` column. This improved accessibility and consistency throughout my analysis.
+
 ```{python}
 #| warning: false
 #| include: false
+
+### 2.2  Code Snippet 2: Mapping Financial Institutions
 
 import pandas as pd
 
@@ -121,9 +139,20 @@ ENTIDAD["FI_TYPE"] = ENTIDAD["ENTIDAD_TIPO"].map(fi_type_mapping)
 
 ```
 
+### 3.3 Code Snippet 3: Merging Datasets AN3 and ENTIDAD and Categorizing Loans
+
+I proceeded by merging the AN3 dataset with ENTIDAD using the column `CODIGO_ENTIDAD_ID`, which added details about each financial institution to the main data. 
+
+After merging, I selected key columns and renamed them for improved readability. Loan types were then categorized into broader categories such as "business," "personal," or "mortgages," based on the `TIPO_CREDITO` column. This grouping was performed to streamline the analysis and facilitate clearer insights.
+
+Finally, the processed dataset was saved in the `Data/processed` folder as `an03_final.dsv`.
+
+
 ```{python}
 #| warning: false
 #| include: false
+
+### 2.3  Code Snippet 3: Merging Datasets and Categorizing Loans
 
 import pandas as pd
 
@@ -247,6 +276,14 @@ merged_AN3.to_csv("../Data/processed/an03_final.dsv", sep='|', index=False)
 
 ```
 
+### 3.4 Code Snippet 4: Merging AN10 and Geographic Enrichment
+
+I then focused on the `AN10` dataset, merging it with both `ENTIDAD` and `UBIGEO` to add geographic context.
+To standardize the data, I converted all department names to uppercase. Then, I carefully selected columns that were essential for my analysis, renaming them for clarity, such as `Deposits` and `Region`. 
+
+Finally, the processed dataset was saved in the `Data/processed` folder as `an10_final.dsv`.
+
+
 ```{python}
 #| warning: false
 #| include: false
@@ -283,135 +320,26 @@ merged_AN10 = merged_AN10[[
 merged_AN10.to_csv("../Data/processed/an10_final.dsv", sep='|', index=False)
 
 
-an10_aggregated = merged_AN10.groupby(['YearMonth', 'Region'], as_index=False).agg({
-    'Deposits': 'sum',
-    'Loans': 'sum'
-})
-
-an10_aggregated.to_csv("../Data/processed/an10_aggregated.dsv", sep='|', index=False)
-
-
-an10_aggregated2 = merged_AN10.groupby(['YearMonth'], as_index=False).agg({
-    'Deposits': 'sum',
-    'Loans': 'sum'
-})
-
-an10_aggregated2.to_csv("../Data/processed/an10_aggregated2.dsv", sep='|', index=False)
-
-```
-
-# Data manipulation for Rep2 final
-```{python}
-#| warning: false
-#| include: false
-
-
-# Rename columns
-REP4B2.rename(columns={
-    "SECTOR": "industry",
-    "CREDITOS_DIRECTOS": "Loans",
-    "PARTICIPACION": "Share"
-}, inplace=True)
-
-
-
-# Define a function to categorize industries into broader English labels
-def categorize_industry(industry):
-    industry_groups = {
-        'Chemical Manufacturing': [
-            'Fab. de sustancias y prod. químicos'
-        ],
-        'Wood, Paper, Rubber, and Plastics Manufacturing': [
-            'Madera y papel, caucho y plástico'
-        ],
-        'Metal and Mineral Manufacturing': [
-            'Fab. de metales', 
-            'Fab.de prods. minerales no metálicos', 
-            'Fab. de prods. minerales no metálicos'
-        ],
-        'Mining and Quarrying': [
-            'Minería', 
-            'Explotación de minas y canteras'
-        ],
-        'Transportation and Storage': [
-            'Transporte, Almacenamiento y Comunicaciones', 
-            'Transporte y almacenamiento, e información y comunicaciones'
-        ],
-        'Agriculture, Forestry, and Fishing': [
-            'Agricultura, Ganadería, Caza y Silvicultura',
-            'Pesca'
-        ],
-        'Food and Beverage Manufacturing': [
-            'Alimentos, bebidas y tabaco'
-        ],
-        'Commerce': [
-            'Comercio'
-        ],
-        'Retail and Real Estate Activities': [
-            'Activid. Inmob. empresariales y de alq.', 
-            'Actividades inmobiliarias'
-        ],
-        'Mortgage and Housing': [
-            'Hipotecario para vivienda'
-        ],
-        'Utilities and Waste Management': [
-            'Electricidad, Gas y Agua', 
-            'Electricidad, gas, vapor, aire acondicionado, agua, gestión de desechos y contaminación'
-        ],
-        'Hospitality and Food Services': [
-            'Hoteles y Restaurantes', 
-            'Alojamiento y servicio de comidas'
-        ],
-        'Construction': [
-            'Construcción'
-        ],
-        'Non-Retail Services': [
-            'Otros no minoristas', 
-            'Otras actividades de servicios'
-        ],
-        'General Manufacturing': [
-            'Resto de manufactura', 
-            'Textiles y cueros'
-        ],
-        'Financial and Insurance Services': [
-            'Intermediación Financiera', 
-            'Actividades financieras y de seguros'
-        ]
-    }
-    
-    for category, industries in industry_groups.items():
-        if industry in industries:
-            return category
-    return 'Other'  # Default category for unclassified industries
-
-# Apply the function to categorize industries in the 'industry' column
-REP4B2['industry_category'] = REP4B2['industry'].apply(categorize_industry)
-
-# Merge with ENTIDAD on CODIGO_ENTIDAD_ID
-merged_REP4B2 = pd.merge(REP4B2, ENTIDAD, on="CODIGO_ENTIDAD_ID", how="left")
-
-# Save merged data as .dsv
-merged_REP4B2.to_csv('../Data/processed/rep4b2_final.dsv', sep='|', index=False)
-
 ```
 
 
-## 3. Results
+## 4. Method and Results
 
-####  Analysis of Total Loans and Annual Growth Rate in Peru
+### 3.1 Static Plots
 
-The graph titled **"Total Loans and Annual Growth Rate"** provides a detailed depiction of the evolution of total loans in Peru over the years, alongside their respective growth rates. It offers an insightful summary of the financial dynamics of the Peruvian economy, particularly during the challenging period of the COVID-19 pandemic.
+With the data processed and stored in `Data/processed`, I will proceed to analyze the general landscape of loans and deposits from 2012 onwards.
 
+#### 3.1.1 Analysis of Total Loans and Annual Growth Rate in Peru
+
+**Method:**
+ To analyze the overall trend in loan levels and their growth rates, I created the plot **Total Loans and Annual Growth Rate** To do so, I first loaded the dataset `an03_final.dsv` and aggregated the data by month to determine the total loan amounts. Then, I calculated the annual growth rate by computing the percentage change over a 12-month period, which helped capture the fluctuations in loan growth. I converted the loan values into millions for better readability. I used this processed data to generate a combined visualization—a bar chart to represent total loans over time, and a line chart to depict the annual growth rate. This provided a clear and comprehensive view of both the level of loans and their corresponding growth trends. Lastly, I saved the chart as an HTML file for ease of access and presentation.
+
+**Interpretation:** 
 Before 2020, the graph shows a clear upward trend in total loans, reflecting Peru's economic growth and increasing financial activity. This trend highlights expanding economic activities, where higher credit growth rates are common, especially in developing economies like Peru. The availability of credit supported small and medium enterprises (SMEs) as well as individuals, contributing to economic inclusivity and growth.
 
-The onset of the COVID-19 pandemic in 2020 led to a significant contraction in total loans, with a sharp decline of over 40%. This sudden drop illustrates the severe economic impact that COVID-19 had on the financial system and broader economy. The decline was primarily driven by reduced economic activity, increased uncertainty, and a risk-averse approach adopted by financial institutions. Government-mandated lockdowns further contributed to a decline in demand for loans, as many businesses had to limit or suspend operations. During this period, financial institutions focused on providing relief to borrowers rather than extending new credit. The **Superintendencia de Banca, Seguros y AFP (SBS)** reported that financial entities rescheduled approximately S/ 92 billion in loans to alleviate the financial burden on borrowers. This large-scale restructuring contributed to the decline in new loan issuances.
+The onset of the COVID-19 pandemic in 2020 led to a significant contraction in total loans, with a sharp decline of over 40%. This sudden drop illustrates the severe economic impact that COVID-19 had on the financial system and broader economy. The decline was primarily driven by reduced economic activity, increased uncertainty, and a risk-averse approach adopted by financial institutions. Government-mandated lockdowns further contributed to a decline in demand for loans, as many businesses had to limit or suspend operations. During this period, financial institutions focused on providing relief to borrowers rather than extending new credit. The Financial Authority of Peru reported that financial entities rescheduled approximately S/ 92 billion in loans to alleviate the financial burden on borrowers. This large-scale restructuring contributed to the decline in new loan issuances.
 
-In 2021, a robust recovery in total loans became evident, largely driven by targeted government interventions such as **Reactiva Peru**. This program aimed to provide much-needed liquidity to struggling businesses, helping them remain operational during the ongoing crisis. These interventions stabilized the financial system and revived lending activities, particularly for businesses that were severely affected. Despite this recovery, fluctuations in the annual growth rate indicate that economic recovery was uneven, with various sectors facing ongoing challenges in adjusting to the new normal.
-
-The subsequent stabilization of total loans reflects the effects of these measures, and while lending activity resumed, the pace of growth remained cautious as the economy continued to adjust to the pandemic's long-lasting effects.
-
-This analysis underscores the need for resilience within the financial system of developing economies like Peru, where external shocks can significantly disrupt economic stability. Moving forward, understanding regional differences and implementing targeted policies can help foster balanced growth across all areas of the country. Additionally, focusing on more resilient financial practices could help mitigate the impact of future crises, ensuring continued access to credit and economic stability.
-
+In 2021, a robust recovery in total loans became evident, largely driven by targeted government interventions such as Reactiva Peru. This program aimed to provide much-needed liquidity to struggling businesses, helping them remain operational during the ongoing crisis. These interventions stabilized the financial system and revived lending activities, particularly for businesses that were severely affected. Despite this recovery, fluctuations in the annual growth rate indicate that economic recovery was uneven, with various sectors facing ongoing challenges in adjusting to the new normal.
 
 ```{python}
 
@@ -451,23 +379,24 @@ chart = alt.layer(bars, lines).resolve_scale(
     height=200
 )
 
-# Save the chart as an SVG file in "Images/" directory
+# Save the chart and display
 output_path = "Images/Total Loans and Annual Growth Rate.html"
 
 chart.save(output_path)
 
-# Display the chart
 chart
 
 ```
 
-#### Analysis of Annual Growth Rate of Loans by Credit Type
+#### 4.1.2 Analysis of Annual Growth Rate of Loans by Credit Type
 
-The second graph, titled "Annual Growth Rate of Loans by Credit Type", provides insights into the varying recovery trajectories for different types of loans in Peru. The data reveals that recovery programs, such as Reactiva Peru, initially concentrated on business loans. This focus was intended to ensure that businesses could remain operational and maintain cash flow, which was critical for the broader economic recovery. As depicted in the graph, business loans experienced an initial surge in growth, driven by these interventions.
+**Method:**
+To analyze the annual growth rate of loans by credit type, I developed the graph titled **"Annual Growth Rate of Loans by Credit Type"**. To create this, I started by loading the `an03_final.dsv` dataset and groupping the loans by date and credit type. Using these grouped dataset, I calculated the annual growth rate for each credit type, providing insight into how different types of loans grew over time. Finally, I generated a line chart to visualize the growth rates of different loan types, helping highlight trends and differences across categories. 
 
-By 2021, the government expanded support to household loans, leading to a noticeable improvement in personal and mortgage loans. This expansion was instrumental in helping families manage the economic impact of the pandemic and contributed to a broader recovery. According to the SBS, programs such as Fondo de Apoyo Empresarial (FAE) and Programa de Garantía del Gobierno Nacional (PGGN) were also introduced to provide guarantees and liquidity to both businesses and households. These measures ensured that the recovery extended beyond the business sector, eventually stabilizing personal and mortgage loans as well.
+**Interpretation:** 
+This graph provides insights into the varying recovery trajectories for different types of loans in Peru. The data reveals that recovery programs, such as Reactiva Peru, initially concentrated on business loans. This focus was intended to ensure that businesses could remain operational and maintain cash flow, which was critical for the broader economic recovery. As depicted in the graph, business loans experienced an initial surge in growth, driven by these interventions.
 
-Overall, the graph highlights the differentiated impacts of the pandemic on various types of credit and underscores the importance of targeted policy interventions in supporting both businesses and households during times of crisis.
+By 2021, the government expanded support to household loans, leading to a noticeable improvement in personal and mortgage loans. This expansion was instrumental in helping families manage the economic impact of the pandemic and contributed to a broader recovery. According to the SBS, programs such as "Fondo de Apoyo Empresarial (FAE)" and "Programa de Garantía del Gobierno Nacional (PGGN)" were also introduced to provide guarantees and liquidity to both businesses and households. These measures ensured that the recovery extended beyond the business sector, eventually stabilizing personal and mortgage loans as well.
 
 ```{python}
 import pandas as pd
@@ -476,14 +405,8 @@ import altair as alt
 # Load the an03_final.dsv data
 AN3 = pd.read_csv("../Data/processed/an03_final.dsv", delimiter='|', encoding='latin1')
 
-# Convert Date column to datetime format
-AN3['Date'] = pd.to_datetime(AN3['Date'], errors='coerce')
-
 # Ensure Loans is in numeric format
 AN3['Loans'] = pd.to_numeric(AN3['Loans'], errors='coerce')
-
-# Create a YearMonth column for grouping and aggregation
-AN3['YearMonth'] = AN3['Date'].dt.to_period('M').astype(str)
 
 # Aggregate data by month and LOAN_TYPE, calculating total for Loans
 monthly_data = AN3.groupby(['YearMonth', 'LOAN_TYPE']).agg({
@@ -514,13 +437,20 @@ chart.save(output_path)
 chart
 ```
 
-####  Analysis of Total Deposits and Annual Growth Rate
+#### 4.1.3 Analysis of Total Deposits and Annual Growth Rate
 
-The third graph, titled "Total Deposits and Annual Growth Rate", illustrates the evolution of deposits in Peru over the years, showing remarkable stability during the pandemic. Unlike loans, deposits remained relatively stable throughout this challenging period. Initially, there was a slight dip during the first months of the pandemic, but overall, deposits did not experience a drastic drop.
+**Method:**
+To analyze the trends in deposits over time and understand their annual growth rates, I created a  chart titled **Total Deposits and Annual Growth Rate**. To prepare the data, I started by loading the dataset `an10_final.dsv`, converting the `Date` column to a datetime format to make sure it was ready for time-based analysis. 
 
-Several factors contributed to this stability. During uncertain times, individuals and businesses tend to save more, leading to increased deposits. The lockdowns and restrictions reduced consumer expenditures, allowing households and businesses to save a larger portion of their income. Additionally, government relief programs provided liquidity to businesses, and part of this liquidity was stored as deposits in financial institutions. This behavior underscores the contrasting dynamics of loans and deposits during times of economic stress, highlighting a more cautious approach by both households and businesses in managing their finances.
+Next, I aggregated the data by month, computing monthly total deposit values. With this aggregated dataset, I calculated the annual growth rate of deposits by comparing each value to the same month from the previous year. To make the chart more readable, I also converted deposit values into millions.
 
-These trends reveal the critical role of deposit stability in maintaining financial system resilience. The increased savings and deposits during the pandemic provided a cushion for financial institutions, allowing them to weather the crisis more effectively. Moving forward, encouraging saving behavior and ensuring the safety of deposits will be key to maintaining stability in the financial sector during future economic uncertainties.
+I created two different visual elements: a bar chart to represent the total deposits in millions and a line chart for the annual growth rate. These were then combined into a single visual, with independent y-axes for each chart, so viewers could clearly see the relationship between the deposit levels and their growth rate. 
+
+**Interpretation:** 
+The third graph illustrates the evolution of deposits in Peru over the years, showing remarkable stability during the pandemic. Unlike loans, deposits remained relatively stable throughout this challenging period. Initially, there was a slight dip during the first months of the pandemic, but overall, deposits did not experience a drastic drop.
+
+Several factors contributed to this stability. During uncertain times, individuals and businesses tend to save more, leading to increased deposits. The lockdowns and restrictions reduced consumer expenditures, allowing households and businesses to save a larger portion of their income. Additionally, government relief programs provided liquidity to businesses, and part of this liquidity was stored as deposits in financial institutions. This behavior underscores the contrasting dynamics of loans and deposits during times of economic stress.
+
 
 ```{python}
 import pandas as pd
@@ -586,150 +516,49 @@ chart
 
 ```
 
-#### Deposits by Region in Peru (January 2020, excluding Lima)",
+### 4.2 Financial Inclusion Shiny App
 
-```{python}
-import pandas as pd
-import altair as alt
-import geopandas as gpd
-import json
+After conducting a historical analysis of loan and deposit trends, a Shiny app was developed to provide a dynamic, interactive examination of financial inclusion metrics in Peru. Below is an overview of the step-by-step process used to build the application, detailing data preparation, UI development, and server-side logic.
 
-# Load the GeoJSON file
-geojson_path = "../Data/raw/peru_departamental_simple.geojson"
-geo_data = gpd.read_file(geojson_path)
+#### 4.2.1 Data Preparation
 
-# Load the AN10 data
-AN10 = pd.read_csv("../Data/processed/an10_final.dsv", delimiter='|', encoding='latin1')
+The application utilizes Python libraries such as Pandas, Altair, GeoPandas, and Shiny to construct the dashboard. I started by loading GeoJSON data for the geographic boundaries of Peruvian departments, as well as deposit and loan data from CSV files located in `Data/processed/`.
 
-# Rename "Region" to "region" and convert contents to uppercase
-AN10.rename(columns={"Region": "region"}, inplace=True)
-AN10['region'] = AN10['region'].str.upper()
+The datasets were aggregated and filtered:
+- For `an10`, I grouped data by month and region. The total values were converted into millions for simplicity.
+- For `an03`, I aggregated data by financial institution type, loan type, and industry category, converting values as appropriate.
 
-# Convert Date column to datetime format and extract YearMonth as a string
-AN10['Date'] = pd.to_datetime(AN10['Date'], errors='coerce')
-AN10['YearMonth'] = AN10['Date'].dt.to_period('M').astype(str).str.replace("-", "")
+Finally, the aggregated data was merged with the geographic dataset to map financial metrics to specific regions.
 
-# Filter for the specific YearMonth (e.g., "202001" for January 2020)
-AN10_filtered = AN10[AN10['YearMonth'] == "202001"]
+#### 4.2.2. User Interface (UI) Development
 
-# Aggregate AN10_filtered data by region
-region_data = AN10_filtered.groupby('region').agg({
-    'Deposits': 'sum' ,
-    'Loans': 'sum' 
-}).reset_index()
+The user interface (UI) of the Shiny app was designed to provide two main sections: Financial Inclusion by Region and Financial Inclusion by Industry.
 
-# Merge the GeoDataFrame with the filtered AN10 
-merged_geo_data = geo_data.merge(region_data, left_on="NOMBDEP", right_on="region", how="left")
+**Page by Region**: This page allows users to select a specific month-year to analyze the distribution of loans and deposits across Peru. Users can also choose to include or exclude the Lima region to tailor their analysis. Value boxes summarize key metrics, such as the sum of loans and deposits and the number of financial institutions. Maps for Loans and Deposits are visualized using Altair, allowing users to view the distribution of financial metrics by region.
 
-# Filter out LIMA from the merged_geo_data
-merged_geo_data = merged_geo_data[merged_geo_data["region"] != "LIMA"]
+**Page by Industry**: This page explores financial inclusion metrics broken down by industry category. Users can choose the date and choose whether to include or exclude personal/mortgage loans. Value boxes provide insights into loans, debtors, and financial institution counts by industry. Visuals include a pie chart for total loans by industry and a scatter plot comparing loan sizes to the number of debtors per industry category.
 
-# Convert GeoDataFrame to JSON for Altair
-geojson_data = json.loads(merged_geo_data.to_json())
+#### 4.2.3. Server Logic Implementation
 
-# Create a Loans map
+The server logic for the app was implemented using Shiny’s server-side features, which dynamically render visual elements and provide real-time interactivity:
 
-loans_map_chart = alt.Chart(alt.Data(values=geojson_data['features'])).mark_geoshape().encode(
-    color=alt.Color('properties.Loans:Q', title='Total Loans (2020-01)', scale=alt.Scale(scheme='reds')),
-    tooltip=[
-        alt.Tooltip('properties.NOMBDEP:N', title='Region'),
-        alt.Tooltip('properties.Loans:Q', title='Loans')
-    ]
-).project(
-    type='mercator'
-).properties(
-    title="Loans by Region in Peru (January 2020, excluding Lima)",
-    width=300,
-    height=400
-)
+- **Data Filtering**: For each page, data is filtered based on user input. This includes filtering by date or excluding certain regions or industries. The filtered datasets are then used for visualization.
+- **Summary Metrics**: Using `render.text()`, I calculated and displayed summary metrics, such as the total value of loans or the number of financial institutions. This helps users quickly grasp the scale of financial activity.
 
+- **Interactive Visualizations**: 
+    - **Geospatial Analysis**: Altair was used to create maps representing loan and deposit amounts by region. These maps give users an intuitive way to understand geographic differences.
+    - **Industry Analysis**: Pie charts, bar charts, and scatter plots were created to give a comprehensive view of loans by industry. The scatter plot, in particular, helps visualize the relationship between loan sizes and the number of debtors across various industry categories.
 
+#### 4.2.4. Navigation and Integration
 
-# # Create a Deposits map
+The app integrates multiple panels using `ui.page_navbar()`, allowing seamless navigation between the two main sections Each page is equipped with custom input widgets, data visualizations, and summary statistics, making it easier for users to extract insights.
 
-dep_map_chart = alt.Chart(alt.Data(values=geojson_data['features'])).mark_geoshape().encode(
-    color=alt.Color('properties.Deposits:Q', title='Total Deposits (2020-01)', scale=alt.Scale(scheme='blues')),
-    tooltip=[
-        alt.Tooltip('properties.NOMBDEP:N', title='Region'),
-        alt.Tooltip('properties.Deposits:Q', title='Deposits')
-    ]
-).project(
-    type='mercator'
-).properties(
-    title="Deposits by Region in Peru (January 2020, excluding Lima)",
-    width=300,
-    height=400
-)
+#### 4.2.5. Deployment
 
+Finally, the Shiny app was deployed to provide an interactive **Financial Inclusion Dashboard**, aimed at visualizing key financial metrics across regions and industries. It utilizes public data from the Financial Authority of Peru (SBS) and the National Institute of Statistics and Information of Peru (INEI).
 
+## 5. Limitations and Next Steps
 
+The analysis in this project has some limitations that need to be addressed for future improvement. The data primarily focuses on regional and sectoral levels, which restricts the ability to drill down to individual borrower behavior and household-level insights. Additionally, the analysis lacks detailed demographic information that could provide a richer context on the factors influencing financial inclusion. Moving forward, incorporating more detailed metrics, such as credit-to-GDP ratios and demographic characteristics, will help provide a better understanding of the financial landscape. Furthermore, a peer group analysis of financial institutions, considering volume and concentration metrics, can help assess competitiveness and identify gaps in access to financial services. These steps will contribute towards a more comprehensive approach to addressing disparities in financial inclusion across different regions and sectors in Peru.
 
-loans_map_chart |  dep_map_chart
-
-
-```
-
-#### Deposits by Region in Peru (January 2020, excluding Lima)",
-
-
-
-```{python}
-
-import pandas as pd
-import altair as alt
-import geopandas as gpd
-import json
-
-# Load the GeoJSON file
-geojson_path = "../Data/raw/peru_departamental_simple.geojson"
-geo_data = gpd.read_file(geojson_path)
-
-# Load the AN10 data
-AN10 = pd.read_csv("../Data/processed/an10_final.dsv", delimiter='|', encoding='latin1')
-
-# Rename "Region" to "region" and convert contents to uppercase
-AN10.rename(columns={"Region": "region"}, inplace=True)
-AN10['region'] = AN10['region'].str.upper()
-
-# Convert Date column to datetime format and extract YearMonth as a string
-AN10['Date'] = pd.to_datetime(AN10['Date'], errors='coerce')
-AN10['YearMonth'] = AN10['Date'].dt.to_period('M').astype(str).str.replace("-", "")
-
-# Filter for the specific YearMonth (e.g., "202001" for January 2020)
-AN10_filtered = AN10[AN10['YearMonth'] == "202001"]
-
-# Aggregate AN10_filtered data by region, e.g., summing Deposits for each region
-region_data = AN10_filtered.groupby('region').agg({
-    'Deposits': 'sum' ,
-    'Loans': 'sum' 
-}).reset_index()
-
-# Merge the GeoDataFrame with the filtered AN10 data on "NOMBDEP" in geo_data and "region" in region_data
-merged_geo_data = geo_data.merge(region_data, left_on="NOMBDEP", right_on="region", how="left")
-
-# Filter out LIMA from the merged_geo_data
-merged_geo_data = merged_geo_data[merged_geo_data["region"] != "LIMA"]
-
-# Convert GeoDataFrame to JSON for Altair
-geojson_data = json.loads(merged_geo_data.to_json())
-
-# Create a map using Altair with specified width and height
-map_chart = alt.Chart(alt.Data(values=geojson_data['features'])).mark_geoshape().encode(
-    color=alt.Color('properties.Deposits:Q', title='Total Deposits (2020-01)', scale=alt.Scale(scheme='blues')),
-    tooltip=[
-        alt.Tooltip('properties.NOMBDEP:N', title='Region'),
-        alt.Tooltip('properties.Deposits:Q', title='Deposits')
-    ]
-).project(
-    type='mercator'
-).properties(
-    title="Deposits by Region in Peru (January 2020, excluding Lima)",
-    width=300,
-    height=400
-)
-
-# Display the map
-map_chart
-
-
-```
+</div>
