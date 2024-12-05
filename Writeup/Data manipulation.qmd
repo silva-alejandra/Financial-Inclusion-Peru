@@ -535,9 +535,15 @@ Finally, the aggregated data was merged with the geographic dataset to map finan
 
 The user interface (UI) of the Shiny app was designed to provide two main sections: Financial Inclusion by Region and Financial Inclusion by Industry.
 
-**Page by Region**: This page allows users to select a specific month-year to analyze the distribution of loans and deposits across Peru. Users can also choose to include or exclude the Lima region to tailor their analysis. Value boxes summarize key metrics, such as the sum of loans and deposits and the number of financial institutions. Maps for Loans and Deposits are visualized using Altair, allowing users to view the distribution of financial metrics by region.
+**Page by Region**: This page allows users to select a specific month-year to analyze the distribution of loans and deposits across Peru. Users can also choose to include or exclude the Lima region to tailor their analysis. Value boxes summarize key metrics, such as the sum of loans and deposits and the number of financial institutions. Maps for Loans and Deposits are visualized using Altair, allowing users to view the distribution of financial metrics by region (See Figure 2).
 
-**Page by Industry**: This page explores financial inclusion metrics broken down by industry category. Users can choose the date and choose whether to include or exclude personal/mortgage loans. Value boxes provide insights into loans, debtors, and financial institution counts by industry. Visuals include a pie chart for total loans by industry and a scatter plot comparing loan sizes to the number of debtors per industry category.
+![Figure 2: Page by Region](Images/Shiny_Region.png)
+
+
+**Page by Industry**: This page explores financial inclusion metrics broken down by industry category. Users can choose the date and choose whether to include or exclude personal/mortgage loans. Value boxes provide insights into loans, debtors, and financial institution counts by industry. Visuals include a pie chart for total loans by industry and a scatter plot comparing loan sizes to the number of debtors per industry category (See Figure 3).
+
+![Figure 3: Page by Industry](Images/Shiny_Industry.png)
+
 
 #### 4.2.3. Server Logic Implementation
 
