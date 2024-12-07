@@ -2,13 +2,13 @@
 title: "30538 Final Project: Financial Inclusion in Peru"
 author: "Alejandra Silva"
 Github user: aosilva08
-date: "2024-10-03"
+date: "2024-10-07"
 format: 
   html:
     code-overflow: wrap   
 execute:
   eval: true          
-  echo: false      
+  echo: false    
 ---
 
 
@@ -563,6 +563,11 @@ The app integrates multiple panels using `ui.page_navbar()`, allowing seamless n
 #### 4.2.5. Deployment
 
 Finally, the Shiny app was deployed to provide an interactive **Financial Inclusion Dashboard**, aimed at visualizing key financial metrics across regions and industries. It utilizes public data from the Financial Authority of Peru (SBS) and the National Institute of Statistics and Information of Peru (INEI).
+
+**Run the Shiny Dashboard**:
+   ```bash
+   shiny run Shiny-app/app.py
+   ```
 
 ## 5. Conclusions
 
