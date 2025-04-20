@@ -3,8 +3,8 @@ numpy
 geopandas
 altair
 shiny
-shinywidgets==0.6.0
-matplotlib==3.8.0
-scipy==1.11.0
+shinywidgets
+matplotlib
+scipy
 folium
-requests==2.31.0
+requests
